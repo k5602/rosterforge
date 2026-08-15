@@ -1,0 +1,23 @@
+[package]
+name = "rf"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.85"
+description = "Cross-platform squad save updater"
+license = "MIT"
+
+[dependencies]
+anyhow = "1"
+clap = { version = "4", features = ["derive", "color", "wrap_help"] }
+quick-xml = { version = "0", features = ["serialize"] }
+reqwest = { version = "0", default-features = false, features = ["blocking", "rustls-tls"] }
+sha2 = "0"
+thiserror = "2"
+walkdir = "2"
+
+[lints.rust]
+unsafe_code = "deny"
+
+[profile.release]
+lto = "thin"
+codegen-units = 1

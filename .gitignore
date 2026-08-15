@@ -1,0 +1,17 @@
+.claude/*
+DATA*
+backup/*
+input/*
+output/*
+downloaded/*
+__pycache__/*
+
+# Rust build output
+target/
+
+# Local runtime data
+backup/
+downloaded/
+input/
+output/
+__pycache__/
