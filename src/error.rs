@@ -50,3 +50,49 @@ pub enum PatchError {
     Save(#[from] SaveFormatError),
 }
 
+#[derive(Debug, Error)]
+pub enum BackupError {
+    #[error("Apollo save folder has no name")]
+    NoFolderName,
+    #[error("cannot read existing backup {path}: {source}")]
+    ReadExisting {
+        path: PathBuf,
+        source: std::io::Error,
+    },
+    #[error("backup exists but differs from {data_path}; use a new backup directory")]
+    Mismatch { data_path: PathBuf },
+    #[error("cannot create backup directory {path}: {source}")]
+    CreateDir {
+        path: PathBuf,
+        source: std::io::Error,
+    },
+    #[error("cannot write {path}: {source}")]
+    Write {
+        path: PathBuf,
+        source: std::io::Error,
+    },
+    #[error("cannot commit {destination}: {source}")]
+    Commit {
+        destination: PathBuf,
+        source: std::io::Error,
+    },
+    #[error("cannot copy {source_path}: {source}")]
+    Copy {
+        source_path: PathBuf,
+        source: std::io::Error,
+    },
+    #[error("invalid save path: {0}")]
+    InvalidPath(walkdir::Error),
+    #[error("entry {0} is outside the save folder")]
+    InvalidSavePath(PathBuf),
+    #[error("DATA is missing from backup {0}")]
+    MissingData(PathBuf),
+    #[error("cannot scan backup container {path}: {source}")]
+    ScanContainer {
+        path: PathBuf,
+        source: std::io::Error,
+    },
+    #[error("backup metadata {path} is invalid: {reason}")]
+    Metadata { path: PathBuf, reason: &'static str },
+}
+
