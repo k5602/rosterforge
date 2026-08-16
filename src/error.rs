@@ -42,3 +42,11 @@ pub enum SaveFormatError {
     InvalidGeneratedSquads,
 }
 
+#[derive(Debug, Error)]
+pub enum PatchError {
+    #[error("EA database does not start with the T3DB marker")]
+    MissingDatabaseMarker,
+    #[error("{0}")]
+    Save(#[from] SaveFormatError),
+}
+
