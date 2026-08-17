@@ -112,3 +112,27 @@ pub enum PlatformError {
     #[error("multiple Apollo saves found; use --data: {count} candidates")]
     AmbiguousSave { count: usize },
 }
+#[derive(Debug, Error)]
+pub enum SourceError {
+    #[error("squad source does not exist: {0}")]
+    Missing(PathBuf),
+    #[error("cannot scan {path}: {source}")]
+    Scan {
+        path: PathBuf,
+        source: walkdir::Error,
+    },
+    #[error("no valid PS4 squad source found under {0}")]
+    NotFound(PathBuf),
+    #[error("multiple squad sources found under {path}; use --squad-file")]
+    Ambiguous { path: PathBuf },
+    #[error("cannot read {path}: {source}")]
+    Read {
+        path: PathBuf,
+        source: std::io::Error,
+    },
+    #[error("{0}")]
+    Save(#[from] SaveFormatError),
+    #[error("{0}")]
+    Refpack(#[from] RefpackError),
+}
+

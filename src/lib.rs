@@ -4,5 +4,6 @@ pub mod patch;
 pub mod platform;
 pub mod refpack;
 pub mod save_format;
+pub mod source_detect;
 
 pub use error::{PatchError, RefpackError, SaveFormatError};
