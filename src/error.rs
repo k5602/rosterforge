@@ -96,3 +96,19 @@ pub enum BackupError {
     Metadata { path: PathBuf, reason: &'static str },
 }
 
+#[derive(Debug, Error)]
+pub enum PlatformError {
+    #[error("cannot scan {root}: {source}")]
+    Scan {
+        root: PathBuf,
+        source: std::io::Error,
+    },
+    #[error("no DATA file found in input/ or mounted game roots")]
+    DataNotFound,
+    #[error("multiple DATA files found; use --data: {count} candidates")]
+    AmbiguousData { count: usize },
+    #[error("no Apollo Squads save found under PS4/APOLLO")]
+    SaveNotFound,
+    #[error("multiple Apollo saves found; use --data: {count} candidates")]
+    AmbiguousSave { count: usize },
+}

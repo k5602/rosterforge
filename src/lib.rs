@@ -1,6 +1,7 @@
 pub mod backup;
 pub mod error;
 pub mod patch;
+pub mod platform;
 pub mod refpack;
 pub mod save_format;
 
