@@ -136,3 +136,16 @@ pub enum SourceError {
     Refpack(#[from] RefpackError),
 }
 
+#[derive(Debug, Error)]
+pub enum RosterError {
+    #[error("roster XML parse failed: {0}")]
+    Xml(String),
+    #[error("roster manifest has no entry for platform {platform}")]
+    MissingPlatform { platform: &'static str },
+    #[error("{platform} roster entry is missing {field}")]
+    MissingField {
+        platform: &'static str,
+        field: &'static str,
+    },
+}
+
