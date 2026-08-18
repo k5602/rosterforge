@@ -1,4 +1,5 @@
 pub mod backup;
+pub mod download;
 pub mod error;
 pub mod patch;
 pub mod platform;

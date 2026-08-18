@@ -149,3 +149,27 @@ pub enum RosterError {
     },
 }
 
+#[derive(Debug, Error)]
+pub enum DownloadError {
+    #[error("cannot create HTTPS client: {0}")]
+    Client(reqwest::Error),
+    #[error("request to {url} failed after retries: {source}")]
+    Request { url: String, source: reqwest::Error },
+    #[error("server returned {status} for {url}")]
+    Status {
+        url: String,
+        status: reqwest::StatusCode,
+    },
+    #[error("cannot read response body for {url}: {source}")]
+    Body { url: String, source: reqwest::Error },
+    #[error("cannot write download {destination}: {source}")]
+    Write {
+        destination: PathBuf,
+        source: std::io::Error,
+    },
+    #[error("EA manifest contains an unsafe squad path: {0}")]
+    UnsafePath(String),
+    #[error("{0}")]
+    Roster(#[from] RosterError),
+}
+
