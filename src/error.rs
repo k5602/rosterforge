@@ -51,6 +51,73 @@ pub enum PatchError {
 }
 
 #[derive(Debug, Error)]
+pub enum RosterError {
+    #[error("roster XML parse failed: {0}")]
+    Xml(String),
+    #[error("roster manifest has no entry for platform {platform}")]
+    MissingPlatform { platform: &'static str },
+    #[error("{platform} roster entry is missing {field}")]
+    MissingField {
+        platform: &'static str,
+        field: &'static str,
+    },
+}
+
+#[derive(Debug, Error)]
+pub enum DownloadError {
+    #[error("cannot create HTTPS client: {0}")]
+    Client(reqwest::Error),
+    #[error("request to {url} failed after retries: {source}")]
+    Request { url: String, source: reqwest::Error },
+    #[error("server returned {status} for {url}")]
+    Status {
+        url: String,
+        status: reqwest::StatusCode,
+    },
+    #[error("cannot read response body for {url}: {source}")]
+    Body { url: String, source: reqwest::Error },
+    #[error("cannot stream response body for {url}: {source}")]
+    Stream { url: String, source: std::io::Error },
+    #[error("content length for {url} exceeds the {limit} byte limit")]
+    TooLarge { url: String, limit: u64 },
+    #[error("cannot write download {destination}: {source}")]
+    Write {
+        destination: PathBuf,
+        source: std::io::Error,
+    },
+    #[error("EA manifest contains an unsafe squad path: {0}")]
+    UnsafePath(String),
+    #[error("content URL must start with https://")]
+    InsecureUrl,
+    #[error("{0}")]
+    Roster(#[from] RosterError),
+}
+
+#[derive(Debug, Error)]
+pub enum SourceError {
+    #[error("squad source does not exist: {0}")]
+    Missing(PathBuf),
+    #[error("cannot scan {path}: {source}")]
+    Scan {
+        path: PathBuf,
+        source: walkdir::Error,
+    },
+    #[error("no valid PS4 squad source found under {0}")]
+    NotFound(PathBuf),
+    #[error("multiple squad sources found under {path}; use --squad-file")]
+    Ambiguous { path: PathBuf },
+    #[error("cannot read {path}: {source}")]
+    Read {
+        path: PathBuf,
+        source: std::io::Error,
+    },
+    #[error("{0}")]
+    Save(#[from] SaveFormatError),
+    #[error("{0}")]
+    Refpack(#[from] RefpackError),
+}
+
+#[derive(Debug, Error)]
 pub enum BackupError {
     #[error("Apollo save folder has no name")]
     NoFolderName,
@@ -112,64 +179,3 @@ pub enum PlatformError {
     #[error("multiple Apollo saves found; use --data: {count} candidates")]
     AmbiguousSave { count: usize },
 }
-#[derive(Debug, Error)]
-pub enum SourceError {
-    #[error("squad source does not exist: {0}")]
-    Missing(PathBuf),
-    #[error("cannot scan {path}: {source}")]
-    Scan {
-        path: PathBuf,
-        source: walkdir::Error,
-    },
-    #[error("no valid PS4 squad source found under {0}")]
-    NotFound(PathBuf),
-    #[error("multiple squad sources found under {path}; use --squad-file")]
-    Ambiguous { path: PathBuf },
-    #[error("cannot read {path}: {source}")]
-    Read {
-        path: PathBuf,
-        source: std::io::Error,
-    },
-    #[error("{0}")]
-    Save(#[from] SaveFormatError),
-    #[error("{0}")]
-    Refpack(#[from] RefpackError),
-}
-
-#[derive(Debug, Error)]
-pub enum RosterError {
-    #[error("roster XML parse failed: {0}")]
-    Xml(String),
-    #[error("roster manifest has no entry for platform {platform}")]
-    MissingPlatform { platform: &'static str },
-    #[error("{platform} roster entry is missing {field}")]
-    MissingField {
-        platform: &'static str,
-        field: &'static str,
-    },
-}
-
-#[derive(Debug, Error)]
-pub enum DownloadError {
-    #[error("cannot create HTTPS client: {0}")]
-    Client(reqwest::Error),
-    #[error("request to {url} failed after retries: {source}")]
-    Request { url: String, source: reqwest::Error },
-    #[error("server returned {status} for {url}")]
-    Status {
-        url: String,
-        status: reqwest::StatusCode,
-    },
-    #[error("cannot read response body for {url}: {source}")]
-    Body { url: String, source: reqwest::Error },
-    #[error("cannot write download {destination}: {source}")]
-    Write {
-        destination: PathBuf,
-        source: std::io::Error,
-    },
-    #[error("EA manifest contains an unsafe squad path: {0}")]
-    UnsafePath(String),
-    #[error("{0}")]
-    Roster(#[from] RosterError),
-}
-

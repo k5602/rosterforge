@@ -7,11 +7,28 @@ use crate::error::PlatformError;
 /// Filesystem roots that can hold removable media with the Apollo layout.
 pub fn mount_roots() -> Vec<PathBuf> {
     let mut roots = Vec::new();
-    if let Ok(user) = std::env::var("USER") {
-        roots.push(PathBuf::from("/media").join(&user));
-        roots.push(PathBuf::from("/run/media").join(user));
+    #[cfg(target_os = "macos")]
+    roots.push(PathBuf::from("/Volumes"));
+
+    #[cfg(windows)]
+    {
+        for letter in b'A'..=b'Z' {
+            let drive = PathBuf::from(format!("{}:\\", letter as char));
+            if drive.is_dir() {
+                roots.push(drive);
+            }
+        }
     }
-    roots.push(PathBuf::from("/mnt"));
+
+    #[cfg(all(unix, not(target_os = "macos")))]
+    {
+        if let Ok(user) = std::env::var("USER") {
+            roots.push(PathBuf::from("/media").join(&user));
+            roots.push(PathBuf::from("/run/media").join(user));
+        }
+        roots.push(PathBuf::from("/mnt"));
+    }
+
     roots.retain(|path| path.is_dir());
     roots.sort();
     roots.dedup();

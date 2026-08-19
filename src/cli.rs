@@ -19,9 +19,34 @@ pub enum Command {
         path: PathBuf,
     },
     Download {
+        /// Squad platform to fetch from the EA manifest.
+        #[arg(long, value_enum, default_value_t = TargetPlatform::Ps4)]
+        platform: TargetPlatform,
+        /// Fetch the FUT squads file instead of the major squads file.
+        #[arg(long)]
+        fut: bool,
+        /// EA content base URL. Override when a new title year rotates it.
+        #[arg(long, default_value_t = crate::download::DEFAULT_CONTENT_URL.to_owned())]
+        content_url: String,
         #[arg(long, default_value = "downloaded")]
         output_dir: PathBuf,
     },
+}
+
+/// Platforms present in the EA roster manifest.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, clap::ValueEnum)]
+pub enum TargetPlatform {
+    Ps4,
+    Xbox,
+}
+
+impl From<TargetPlatform> for rf::roster::Platform {
+    fn from(platform: TargetPlatform) -> Self {
+        match platform {
+            TargetPlatform::Ps4 => rf::roster::Platform::Ps4,
+            TargetPlatform::Xbox => rf::roster::Platform::Xbox,
+        }
+    }
 }
 
 #[derive(Debug, clap::Args)]
@@ -30,6 +55,9 @@ pub struct UpdateArgs {
     pub data: Option<PathBuf>,
     #[arg(long)]
     pub squad_file: Option<PathBuf>,
+    /// EA content base URL. Override when a new title year rotates it.
+    #[arg(long, default_value_t = crate::download::DEFAULT_CONTENT_URL.to_owned())]
+    pub content_url: String,
     #[arg(long, default_value = "downloaded")]
     pub download_dir: PathBuf,
     #[arg(long, default_value = "output")]

@@ -1,6 +1,7 @@
 mod cli;
 
 use std::fs;
+use std::io;
 use std::path::Path;
 
 use anyhow::{Context, Result};
@@ -9,7 +10,7 @@ use sha2::{Digest, Sha256};
 
 use cli::{Cli, Command, UpdateArgs};
 use rf::backup;
-use rf::download;
+use rf::download::{self, SquadKind};
 use rf::patch::patch_data;
 use rf::{save_format, source_detect};
 
@@ -17,8 +18,18 @@ fn main() -> Result<()> {
     match Cli::parse().command {
         Command::Verify { path } => verify(&path),
         Command::Inspect { path } => inspect(&path),
-        Command::Download { output_dir } => {
-            let path = download::download_latest(&output_dir)?;
+        Command::Download {
+            platform,
+            fut,
+            content_url,
+            output_dir,
+        } => {
+            let kind = if fut {
+                SquadKind::Fut
+            } else {
+                SquadKind::Major
+            };
+            let path = download::download_latest(&output_dir, &content_url, platform.into(), kind)?;
             println!("Downloaded: {}", path.display());
             Ok(())
         }
@@ -85,8 +96,12 @@ fn update(args: UpdateArgs) -> Result<()> {
         fs::read(&data_path).with_context(|| format!("cannot read {}", data_path.display()))?;
     let t3db = save_format::validate_data(&user_data)?;
     let backup_path = if !args.dry_run {
-        let backup_path =
-            backup::ensure_backup(&data_path, &user_data, &args.backup_dir, save_folder.as_deref())?;
+        let backup_path = backup::ensure_backup(
+            &data_path,
+            &user_data,
+            &args.backup_dir,
+            save_folder.as_deref(),
+        )?;
         println!("Backup: {}", backup_path.display());
         Some(backup_path)
     } else {
@@ -97,7 +112,12 @@ fn update(args: UpdateArgs) -> Result<()> {
         None => match source_detect::detect(&args.download_dir) {
             Ok(source) => source,
             Err(_) => {
-                let path = download::download_latest(&args.download_dir)?;
+                let path = download::download_latest(
+                    &args.download_dir,
+                    &args.content_url,
+                    rf::roster::Platform::Ps4,
+                    SquadKind::Major,
+                )?;
                 source_detect::detect(&path)?
             }
         },
