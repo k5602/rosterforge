@@ -8,7 +8,7 @@ use anyhow::{Context, Result};
 use clap::Parser;
 use sha2::{Digest, Sha256};
 
-use cli::{Cli, Command, UpdateArgs};
+use cli::{Cli, Command, RestoreArgs, UpdateArgs};
 use rf::backup;
 use rf::download::{self, SquadKind};
 use rf::patch::patch_data;
@@ -33,8 +33,57 @@ fn main() -> Result<()> {
             println!("Downloaded: {}", path.display());
             Ok(())
         }
+        Command::Restore(args) => restore(&args),
         Command::Update(args) => update(args),
     }
+}
+
+/// Copy a verified backup DATA file back over a squad save.
+///
+/// The destination must be a valid squad DATA file or live inside a
+/// `*_Squads` Apollo folder. This prevents accidental overwrites of
+/// unrelated files.
+fn restore(args: &RestoreArgs) -> Result<()> {
+    let backup_data = backup::backup_data_path(&args.backup)?;
+    let expected = backup::stored_source_hash(&args.backup)?;
+    let bytes =
+        fs::read(&backup_data).with_context(|| format!("cannot read {}", backup_data.display()))?;
+    let actual = hash(&bytes);
+    anyhow::ensure!(
+        actual == expected,
+        "backup integrity failure in {}: marker records {expected} but DATA hashes to {actual}",
+        args.backup.display()
+    );
+    let destination_bytes = fs::read(&args.destination)
+        .with_context(|| format!("cannot read {}", args.destination.display()))?;
+    let looks_like_save = args.destination.parent().is_some_and(|parent| {
+        parent
+            .file_name()
+            .is_some_and(|name| name.to_string_lossy().contains("_Squads"))
+    }) || save_format::validate_data(&destination_bytes).is_ok();
+    anyhow::ensure!(
+        looks_like_save,
+        "refusing to overwrite {}: it is not inside a *_Squads folder and does not contain a valid squad DATA file",
+        args.destination.display()
+    );
+    println!("Backup DATA SHA-256: {}", actual);
+    println!("Target SHA-256:      {}", hash(&destination_bytes));
+    println!("Restore size:        {} bytes", bytes.len());
+    if args.dry_run {
+        println!("Dry run: no files were changed.");
+        return Ok(());
+    }
+    let temporary = args.destination.with_extension("part");
+    fs::write(&temporary, &bytes)
+        .with_context(|| format!("cannot write {}", temporary.display()))?;
+    fs::rename(&temporary, &args.destination)
+        .with_context(|| format!("cannot commit {}", args.destination.display()))?;
+    println!(
+        "Restored {} to {}",
+        backup_data.display(),
+        args.destination.display()
+    );
+    Ok(())
 }
 
 fn verify(path: &Path) -> Result<()> {

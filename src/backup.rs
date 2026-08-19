@@ -95,6 +95,20 @@ pub fn backup_data_path(container: &Path) -> Result<PathBuf, BackupError> {
     Err(BackupError::MissingData(container.to_owned()))
 }
 
+/// Read and parse the `.source_sha256` marker of a backup container.
+pub fn stored_source_hash(container: &Path) -> Result<String, BackupError> {
+    let path = container.join(".source_sha256");
+    let raw = fs::read_to_string(&path).map_err(|source| BackupError::Write { path, source })?;
+    let trimmed = raw.trim();
+    if trimmed.len() != 64 || !trimmed.bytes().all(|b| b.is_ascii_hexdigit()) {
+        return Err(BackupError::Metadata {
+            path: container.join(".source_sha256"),
+            reason: "expected 64 hexadecimal characters",
+        });
+    }
+    Ok(trimmed.to_ascii_lowercase())
+}
+
 pub fn mirror_save_folder(
     source: &Path,
     destination: &Path,

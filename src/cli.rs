@@ -18,6 +18,7 @@ pub enum Command {
     Inspect {
         path: PathBuf,
     },
+    Restore(RestoreArgs),
     Download {
         /// Squad platform to fetch from the EA manifest.
         #[arg(long, value_enum, default_value_t = TargetPlatform::Ps4)]
@@ -47,6 +48,16 @@ impl From<TargetPlatform> for rf::roster::Platform {
             TargetPlatform::Xbox => rf::roster::Platform::Xbox,
         }
     }
+}
+
+#[derive(Debug, clap::Args)]
+pub struct RestoreArgs {
+    /// Backup container created by `rf update` (contains DATA and .source_sha256).
+    pub backup: PathBuf,
+    /// Save DATA file to overwrite with the backup copy.
+    pub destination: PathBuf,
+    #[arg(long)]
+    pub dry_run: bool,
 }
 
 #[derive(Debug, clap::Args)]
