@@ -1,6 +1,7 @@
 use std::path::PathBuf;
 
 use clap::{Parser, Subcommand};
+use clap_complete::Shell;
 
 #[derive(Debug, Parser)]
 #[command(name = "rf", version, about = "Update squad saves")]
@@ -18,7 +19,6 @@ pub enum Command {
     Inspect {
         path: PathBuf,
     },
-    Restore(RestoreArgs),
     Download {
         /// Squad platform to fetch from the EA manifest.
         #[arg(long, value_enum, default_value_t = TargetPlatform::Ps4)]
@@ -32,6 +32,14 @@ pub enum Command {
         #[arg(long, default_value = "downloaded")]
         output_dir: PathBuf,
     },
+    Restore(RestoreArgs),
+    /// Generate shell completions for the given shell.
+    Completions {
+        shell: Shell,
+    },
+    /// Print a roff man page to stdout.
+    #[command(hide = true)]
+    Manpage,
 }
 
 /// Platforms present in the EA roster manifest.

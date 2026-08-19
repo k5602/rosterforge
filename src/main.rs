@@ -5,7 +5,8 @@ use std::io;
 use std::path::Path;
 
 use anyhow::{Context, Result};
-use clap::Parser;
+use clap::{CommandFactory, Parser};
+use clap_complete::generate;
 use sha2::{Digest, Sha256};
 
 use cli::{Cli, Command, RestoreArgs, UpdateArgs};
@@ -35,7 +36,30 @@ fn main() -> Result<()> {
         }
         Command::Restore(args) => restore(&args),
         Command::Update(args) => update(args),
+        Command::Completions { shell } => write_stdout_ignoring_broken_pipe(|out| {
+            generate(shell, &mut Cli::command(), "rf", out);
+            Ok(())
+        }),
+        Command::Manpage => print_manpage(),
     }
+}
+
+/// Write generated text to stdout while tolerating closed pipes such as
+/// `rf manpage | head`.
+fn write_stdout_ignoring_broken_pipe(
+    write: impl FnOnce(&mut dyn io::Write) -> io::Result<()>,
+) -> Result<()> {
+    let mut stdout = io::stdout().lock();
+    if let Err(error) = write(&mut stdout)
+        && error.kind() != io::ErrorKind::BrokenPipe
+    {
+        return Err(error.into());
+    }
+    Ok(())
+}
+
+fn print_manpage() -> Result<()> {
+    write_stdout_ignoring_broken_pipe(|out| clap_mangen::Man::new(Cli::command()).render(out))
 }
 
 /// Copy a verified backup DATA file back over a squad save.
