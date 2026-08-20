@@ -8,6 +8,11 @@ __pycache__/*
 
 # Rust build output
 target/
+fuzz/target/
+fuzz/Cargo.lock
+fuzz/artifacts/
+fuzz/corpus/
+fuzz/coverage/
 
 # Local runtime data
 backup/

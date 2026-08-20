@@ -1,0 +1,30 @@
+[package]
+name = "rf-fuzz"
+version = "0.0.0"
+publish = false
+edition = "2024"
+description = "not really needed but i'm a maniac when it comes to validation"
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+libfuzzer-sys = "0.4"
+
+[dependencies.rf]
+path = ".."
+
+[[bin]]
+name = "refpack_decompress"
+path = "fuzz_targets/refpack_decompress.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "save_format_validate"
+path = "fuzz_targets/save_format_validate.rs"
+test = false
+doc = false
+bench = false
+
+[workspace]
