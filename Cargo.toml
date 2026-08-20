@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2024"
 rust-version = "1.85"
 description = "Cross-platform squad save updater"
-license = "MIT"
+license = "BSD-3-Clause"
 
 [dependencies]
 anyhow = "1"

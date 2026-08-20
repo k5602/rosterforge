@@ -1,76 +1,41 @@
 # RosterForge
 
-`rf` is a cross-platform command-line tool for updating EA FC PS4 squad saves.
+`rf` is a **hobby project**: a cross-platform command-line tool for updating
+EA FC PS4 squad saves. It downloads the latest EA roster, decodes it, and
+patches an Apollo-exported PS4 save, with validation and backups along the way.
 
-It accepts an Apollo `DATA` file, a generated `Squads*` file, or a compressed EA
-RefPack squad file. It validates the save format, creates a backup, patches the
-database, and verifies the output before writing it.
+No warranty. The save formats are undocumented and can break at any time.
+Always keep your own backup; the tool creates one too, but trust nothing
+blindly - especially not a hobby tool.
 
-## Usage
-
-Build the binary:
+## Build
 
 ```bash
 cargo build --release
 ```
 
-Validate a save:
+## Usage
 
 ```bash
-rf verify input/DATA
+rf verify <DATA>              # validate a save file
+rf inspect <path>             # inspect a save or squad source
+rf download                   # fetch the latest PS4 squad source
+rf update                     # patch a save with the latest roster
+rf restore <backup> <DATA>    # roll a save back from a backup
 ```
 
-Inspect a local squad source:
+Run `rf --help` for all options: `--dry-run`, `--platform`, `--fut`,
+`--content-url`, shell completions, and more.
 
-```bash
-rf inspect result/ps4
-```
+Binary format details: [docs/Technical-Reference.md](docs/Technical-Reference.md).
 
-Download the latest PS4 squad source:
+## Credits
 
-```bash
-rf download --output-dir downloaded
-```
+Independent implementation inspired by
+[FIFASquadFileDownloader](https://github.com/xAranaktu/FIFASquadFileDownloader)
+and [Apollo Save Tool](https://github.com/bucanero/apollo-ps4).
 
-Run a dry update using a local source:
+## License
 
-```bash
-rf update \
-  --data input/DATA \
-  --squad-file result/ps4/squads/464/Squads20260218000000 \
-  --dry-run
-```
+[BSD-3-Clause](LICENSE).
 
-Run an update without specifying `--data`:
-
-```bash
-rf update
-```
-
-The tool searches `input/` and common Linux mount roots for the Apollo layout:
-
-```text
-USB/PS4/APOLLO/<user>_<title>_Squads<timestamp>/DATA
-```
-
-Complete Apollo save folders are backed up and mirrored to the output. If the
-tool finds more than one save, provide `--data` explicitly.
-
-## Safety
-
-- Input DATA files are validated before processing.
-- RefPack streams use checked bounds validation.
-- T3DB and BNRY markers are validated.
-- Backups are created before output is written.
-- Downloads and output files use temporary paths and atomic renames.
-- `--dry-run` performs validation without changing files.
-- HTTPS certificate verification remains enabled.
-
-## Credits and Inspirations
-
-This project is an independent implementation inspired by:
-
-- [FIFASquadFileDownloader](https://github.com/xAranaktu/FIFASquadFileDownloader)
-  for EA download and RefPack format research.
-- [Apollo Save Tool](https://github.com/bucanero/apollo-ps4) for PS4 save export
-  and restore workflows.
