@@ -1,7 +1,9 @@
+use std::fs;
 use std::path::{Path, PathBuf};
 
 use walkdir::WalkDir;
 
+use crate::download;
 use crate::error::SourceError;
 use crate::refpack::decompress;
 use crate::save_format::database_from_generated_squads;
@@ -42,6 +44,7 @@ pub fn detect(path: &Path) -> Result<SquadSource, SourceError> {
         1 => Ok(candidates.remove(0)),
         _ => Err(SourceError::Ambiguous {
             path: path.to_owned(),
+            candidates: candidates.iter().map(|s| source_path(s).to_owned()).collect(),
         }),
     }
 }
@@ -61,6 +64,34 @@ pub fn database(source: &SquadSource) -> Result<Vec<u8>, SourceError> {
 }
 
 fn classify(path: &Path) -> Result<SquadSource, SourceError> {
+    let metadata =
+        fs::metadata(path).map_err(|source| SourceError::Read {
+            path: path.to_owned(),
+            source,
+        })?;
+    if !metadata.is_file() {
+        return Err(SourceError::Read {
+            path: path.to_owned(),
+            source: std::io::Error::new(
+                std::io::ErrorKind::InvalidInput,
+                "not a regular file",
+            ),
+        });
+    }
+    let size = metadata.len();
+    if size > download::MAX_DOWNLOAD_BYTES {
+        return Err(SourceError::Read {
+            path: path.to_owned(),
+            source: std::io::Error::new(
+                std::io::ErrorKind::InvalidInput,
+                format!(
+                    "file is {} bytes, exceeds maximum squad source size of {} bytes",
+                    size,
+                    download::MAX_DOWNLOAD_BYTES
+                ),
+            ),
+        });
+    }
     let bytes = std::fs::read(path).map_err(|source| SourceError::Read {
         path: path.to_owned(),
         source,
