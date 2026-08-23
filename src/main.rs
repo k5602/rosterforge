@@ -217,9 +217,22 @@ fn update(args: UpdateArgs) -> Result<()> {
     fs::create_dir_all(&args.output_dir)
         .with_context(|| format!("cannot create {}", args.output_dir.display()))?;
     let output_container = args.output_dir.join(backup::container_name(&user_data));
-    if output_container.exists() {
-        fs::remove_dir_all(&output_container)
-            .with_context(|| format!("cannot replace {}", output_container.display()))?;
+    if let Ok(metadata) = fs::symlink_metadata(&output_container) {
+        if metadata.is_symlink() {
+            anyhow::bail!(
+                "refusing to remove {}: it is a symlink, which could point outside the output directory",
+                output_container.display()
+            );
+        }
+        if metadata.is_dir() {
+            fs::remove_dir_all(&output_container).with_context(|| {
+                format!("cannot replace {}", output_container.display())
+            })?;
+        } else {
+            fs::remove_file(&output_container).with_context(|| {
+                format!("cannot replace {}", output_container.display())
+            })?;
+        }
     }
     if let (Some(path), Some(folder)) = (&backup_path, &save_folder) {
         let backup_save = path.join(folder.file_name().context("save folder has no name")?);
