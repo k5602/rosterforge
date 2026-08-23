@@ -104,8 +104,11 @@ pub enum SourceError {
     },
     #[error("no valid PS4 squad source found under {0}")]
     NotFound(PathBuf),
-    #[error("multiple squad sources found under {path}; use --squad-file")]
-    Ambiguous { path: PathBuf },
+    #[error("multiple squad sources found under {path}; use --squad-file. Candidates: {candidates:?}")]
+    Ambiguous {
+        path: PathBuf,
+        candidates: Vec<PathBuf>,
+    },
     #[error("cannot read {path}: {source}")]
     Read {
         path: PathBuf,
