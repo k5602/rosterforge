@@ -134,14 +134,32 @@ one `squadInfo` element per platform:
 ## Testing strategy
 
 - Unit tests cover the RefPack decoder command paths, error contracts,
-  manifest parsing, and the patch invariants. See the `#[cfg(test)]`
-  modules in `src/`.
+  manifest parsing, save name extraction, folder name sanitization, and the
+  patch invariants. See the `#[cfg(test)]` modules in `src/`.
 - Fuzz targets assert the decoders never panic on untrusted input:
 
 ```bash
 cargo install cargo-fuzz
 RUSTUP_TOOLCHAIN=nightly-2025-11-15 cargo fuzz run refpack_decompress
 RUSTUP_TOOLCHAIN=nightly-2025-11-15 cargo fuzz run save_format_validate
+RUSTUP_TOOLCHAIN=nightly-2025-11-15 cargo fuzz run patch_data
+RUSTUP_TOOLCHAIN=nightly-2025-11-15 cargo fuzz run roster_parse
 ```
 
 The pinned nightly works around a cargo-fuzz and newest-nightly mismatch.
+
+## Security hardening
+
+- Downloads use HTTPS only; non-HTTPS content URLs are rejected.
+- Manifest locations are validated against path traversal and absolute paths.
+- Download size is capped at 256 MiB; RefPack output is capped at 64 MiB.
+- Generated squad files are capped at 256 MiB to prevent OOM.
+- Squad source files are size-checked before reading to avoid OOM on
+  untrusted inputs.
+- Output directory replacement refuses to remove symlinks, preventing
+  symlink-swap attacks.
+- All file writes use atomic `.part` + rename to prevent torn writes.
+- HTTP 429 (rate limit) responses are retried with `Retry-After` header
+  parsing, clamped to 1-30 seconds.
+- Backups include SHA-256 integrity markers; restore verifies these before
+  overwriting any file.
