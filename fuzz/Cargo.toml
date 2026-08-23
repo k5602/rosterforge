@@ -27,4 +27,18 @@ test = false
 doc = false
 bench = false
 
+[[bin]]
+name = "patch_data"
+path = "fuzz_targets/patch_data.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "roster_parse"
+path = "fuzz_targets/roster_parse.rs"
+test = false
+doc = false
+bench = false
+
 [workspace]
