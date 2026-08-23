@@ -11,7 +11,7 @@ use crate::roster::{self, Platform, SquadManifest};
 
 pub const DEFAULT_CONTENT_URL: &str = "https://eafc26.content.easports.com/fc/fltOnlineAssets/26E4D4D6-8DBB-4A9A-BD99-9C47D3AA341D/2026/";
 const ROSTER_PATH: &str = "fc/fclive/genxtitle/rosterupdate.xml";
-const MAX_DOWNLOAD_BYTES: u64 = 256 * 1024 * 1024;
+pub const MAX_DOWNLOAD_BYTES: u64 = 256 * 1024 * 1024;
 const MAX_ATTEMPTS: u32 = 3;
 const RETRY_DELAY: Duration = Duration::from_secs(2);
 
@@ -113,13 +113,20 @@ fn fetch_text(http: &Client, url: &str) -> Result<String, DownloadError> {
 
 fn send_with_retry(http: &Client, url: &str) -> Result<Response, DownloadError> {
     let mut attempt = 1;
+    let mut delay = RETRY_DELAY;
     loop {
         match http.get(url).send() {
             Ok(response) if response.status().is_success() => {
                 return Ok(response);
             }
-            // Retry transient server failures and connection problems only.
-            Ok(response) if response.status().is_server_error() && attempt < MAX_ATTEMPTS => {}
+            Ok(response)
+                if response.status() == reqwest::StatusCode::TOO_MANY_REQUESTS
+                    && attempt < MAX_ATTEMPTS =>
+            {
+                delay = parse_retry_after(&response).unwrap_or(RETRY_DELAY);
+            }
+            Ok(response)
+                if response.status().is_server_error() && attempt < MAX_ATTEMPTS => {}
             Ok(response) => {
                 return Err(DownloadError::Status {
                     url: url.to_owned(),
@@ -136,8 +143,15 @@ fn send_with_retry(http: &Client, url: &str) -> Result<Response, DownloadError> 
             }
         }
         attempt += 1;
-        std::thread::sleep(RETRY_DELAY);
+        std::thread::sleep(delay);
     }
+}
+
+/// Parse `Retry-After` header (seconds) from a 429 response.
+fn parse_retry_after(response: &Response) -> Option<Duration> {
+    let value = response.headers().get(reqwest::header::RETRY_AFTER)?.to_str().ok()?;
+    let seconds = value.parse::<u64>().ok()?;
+    Some(Duration::from_secs(seconds.clamp(1, 30)))
 }
 
 fn fetch_to_file(http: &Client, url: &str, destination: &Path) -> Result<(), DownloadError> {
@@ -232,11 +246,31 @@ mod tests {
     }
 
     #[test]
+    fn accepts_simple_relative_location() {
+        assert!(validate_relative_location("squads/464/Squads").is_ok());
+        assert!(validate_relative_location("Squads").is_ok());
+    }
+
+    #[test]
     fn rejects_insecure_content_urls() {
         assert!(matches!(
             validate_content_url("http://example.com/2026/"),
             Err(DownloadError::InsecureUrl)
         ));
         assert!(validate_content_url(DEFAULT_CONTENT_URL).is_ok());
+    }
+
+    #[test]
+    fn validate_content_url_accepts_https() {
+        assert!(validate_content_url("https://example.com/2026/").is_ok());
+        assert!(validate_content_url("https://example.com").is_ok());
+    }
+
+    #[test]
+    fn validate_content_url_rejects_empty() {
+        assert!(matches!(
+            validate_content_url(""),
+            Err(DownloadError::InsecureUrl)
+        ));
     }
 }
