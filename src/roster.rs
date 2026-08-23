@@ -48,9 +48,10 @@ pub fn parse_manifests(xml: &str) -> Result<Vec<SquadManifest>, RosterError> {
         match reader.read_event() {
             Ok(Event::Start(event)) => {
                 let name = event.name();
-                if name.as_ref().eq_ignore_ascii_case(b"squadInfo") {
+                let name_bytes: &[u8] = name.as_ref();
+                if name_bytes.eq_ignore_ascii_case(b"squadInfo") {
                     current = event.attributes().flatten().find_map(|attr| {
-                        if attr.key.as_ref() != b"platform" {
+                        if !attr.key.as_ref().eq_ignore_ascii_case(b"platform") {
                             return None;
                         }
                         Platform::from_key(&attr.value).map(|platform| Entry {
@@ -62,7 +63,7 @@ pub fn parse_manifests(xml: &str) -> Result<Vec<SquadManifest>, RosterError> {
                         })
                     });
                 }
-                element = String::from_utf8_lossy(name.as_ref()).to_string();
+                element = String::from_utf8_lossy(name_bytes).to_string();
             }
             Ok(Event::Text(text)) => {
                 let Some(entry) = current.as_mut() else {
