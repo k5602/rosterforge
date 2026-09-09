@@ -72,16 +72,18 @@ offset  size  content
 10      ...   command stream
 ```
 
-The decoder expands to exactly the declared size, prepends nothing, and the
-result must start with the T3DB marker. Output size is capped at 64 MiB.
+The decoder expands to exactly the declared size. It writes the 4-byte
+T3DB marker at output offset 0, then decodes the command stream into the
+remaining bytes. The declared size includes the marker. Output size is
+capped at 64 MiB.
 
 Command encoding, decoded by `src/refpack.rs`:
 
 | Control top bits | Form | Layout |
-|---|---|---|
+| --- | --- | --- |
 | `0xxxxxxx` | small pointer | `control`, `b1`; literals = `control & 3`, length = `((control >> 2) & 7) + 3`, offset = `b1 + ((control & 0x60) << 3) + 1` |
-| `10xxxxxx` | medium pointer | `control`, `b2`, `b3`; literals = `b2 >> 6`, length = `(control & 0x3f) + 4`, offset = `((b2 & 0x3f) << 8 | b3) + 1` |
-| `110xxxxx` | large pointer | `control`, `b2`, `b3`, `b4`; literals = `control & 3`, length = `b4 + ((control & 0x0c) << 6) + 5`, offset = `((control & 0x10) << 12 | b2 << 8 | b3) + 1` |
+| `10xxxxxx` | medium pointer | `control`, `b2`, `b3`; literals = `b2 >> 6`, length = `(control & 0x3f) + 4`, offset = `((b2 & 0x3f) << 8 \| b3) + 1` |
+| `110xxxxx` | large pointer | `control`, `b2`, `b3`, `b4`; literals = `control & 3`, length = `b4 + ((control & 0x0c) << 6) + 5`, offset = `((control & 0x10) << 12 \| b2 << 8 \| b3) + 1` |
 | `111xxxxx` | literal run | literals = `(control & 0x1f) * 4 + 4`; values above 112 are stop codes |
 
 Stop codes are `0xFC..=0xFF`. After the loop ends, the low two bits of the

@@ -2,7 +2,7 @@
 name = "rf"
 version = "0.1.0"
 edition = "2024"
-rust-version = "1.85"
+rust-version = "1.88"
 description = "Cross-platform squad save updater"
 license = "BSD-3-Clause"
 
