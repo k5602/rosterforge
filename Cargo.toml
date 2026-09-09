@@ -2,7 +2,7 @@
 name = "rf"
 version = "0.1.0"
 edition = "2024"
-rust-version = "1.85"
+rust-version = "1.88"
 description = "Cross-platform squad save updater"
 license = "BSD-3-Clause"
 
@@ -12,7 +12,7 @@ clap = { version = "4", features = ["derive", "color", "wrap_help"] }
 clap_complete = "4"
 clap_mangen = "0.3"
 indicatif = "0.18"
-quick-xml = { version = "0", features = ["serialize"] }
+quick-xml = { version = "0.41", features = ["serialize"], default-features = false }
 reqwest = { version = "0", default-features = false, features = [
 	"blocking",
 	"rustls-tls",

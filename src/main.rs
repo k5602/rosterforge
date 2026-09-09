@@ -12,6 +12,7 @@ use sha2::{Digest, Sha256};
 use cli::{Cli, Command, RestoreArgs, UpdateArgs};
 use rf::backup;
 use rf::download::{self, SquadKind};
+use rf::error::SourceError;
 use rf::patch::patch_data;
 use rf::{save_format, source_detect};
 
@@ -184,7 +185,9 @@ fn update(args: UpdateArgs) -> Result<()> {
         Some(path) => source_detect::detect(path)?,
         None => match source_detect::detect(&args.download_dir) {
             Ok(source) => source,
-            Err(_) => {
+            // No local source yet: fetch one. Every other failure, such as
+            // an ambiguous directory, must reach the user unchanged.
+            Err(SourceError::NotFound(_) | SourceError::Missing(_)) => {
                 let path = download::download_latest(
                     &args.download_dir,
                     &args.content_url,
@@ -193,6 +196,7 @@ fn update(args: UpdateArgs) -> Result<()> {
                 )?;
                 source_detect::detect(&path)?
             }
+            Err(error) => return Err(error.into()),
         },
     };
     let database = source_detect::database(&source)?;
@@ -217,9 +221,20 @@ fn update(args: UpdateArgs) -> Result<()> {
     fs::create_dir_all(&args.output_dir)
         .with_context(|| format!("cannot create {}", args.output_dir.display()))?;
     let output_container = args.output_dir.join(backup::container_name(&user_data));
-    if output_container.exists() {
-        fs::remove_dir_all(&output_container)
-            .with_context(|| format!("cannot replace {}", output_container.display()))?;
+    if let Ok(metadata) = fs::symlink_metadata(&output_container) {
+        if metadata.is_symlink() {
+            anyhow::bail!(
+                "refusing to remove {}: it is a symlink, which could point outside the output directory",
+                output_container.display()
+            );
+        }
+        if metadata.is_dir() {
+            fs::remove_dir_all(&output_container)
+                .with_context(|| format!("cannot replace {}", output_container.display()))?;
+        } else {
+            fs::remove_file(&output_container)
+                .with_context(|| format!("cannot replace {}", output_container.display()))?;
+        }
     }
     if let (Some(path), Some(folder)) = (&backup_path, &save_folder) {
         let backup_save = path.join(folder.file_name().context("save folder has no name")?);

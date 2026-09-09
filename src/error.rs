@@ -104,8 +104,13 @@ pub enum SourceError {
     },
     #[error("no valid PS4 squad source found under {0}")]
     NotFound(PathBuf),
-    #[error("multiple squad sources found under {path}; use --squad-file")]
-    Ambiguous { path: PathBuf },
+    #[error(
+        "multiple squad sources found under {path}; use --squad-file. Candidates: {candidates:?}"
+    )]
+    Ambiguous {
+        path: PathBuf,
+        candidates: Vec<PathBuf>,
+    },
     #[error("cannot read {path}: {source}")]
     Read {
         path: PathBuf,
@@ -123,6 +128,11 @@ pub enum BackupError {
     NoFolderName,
     #[error("cannot read existing backup {path}: {source}")]
     ReadExisting {
+        path: PathBuf,
+        source: std::io::Error,
+    },
+    #[error("cannot read backup metadata {path}: {source}")]
+    ReadMetadata {
         path: PathBuf,
         source: std::io::Error,
     },
@@ -170,10 +180,6 @@ pub enum PlatformError {
         root: PathBuf,
         source: std::io::Error,
     },
-    #[error("no DATA file found in input/ or mounted game roots")]
-    DataNotFound,
-    #[error("multiple DATA files found; use --data: {count} candidates")]
-    AmbiguousData { count: usize },
     #[error("no Apollo Squads save found under PS4/APOLLO")]
     SaveNotFound,
     #[error("multiple Apollo saves found; use --data: {count} candidates")]

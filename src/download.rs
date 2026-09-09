@@ -11,7 +11,7 @@ use crate::roster::{self, Platform, SquadManifest};
 
 pub const DEFAULT_CONTENT_URL: &str = "https://eafc26.content.easports.com/fc/fltOnlineAssets/26E4D4D6-8DBB-4A9A-BD99-9C47D3AA341D/2026/";
 const ROSTER_PATH: &str = "fc/fclive/genxtitle/rosterupdate.xml";
-const MAX_DOWNLOAD_BYTES: u64 = 256 * 1024 * 1024;
+pub const MAX_DOWNLOAD_BYTES: u64 = 256 * 1024 * 1024;
 const MAX_ATTEMPTS: u32 = 3;
 const RETRY_DELAY: Duration = Duration::from_secs(2);
 
@@ -63,15 +63,7 @@ pub fn download_latest(
     let manifests = roster::parse_manifests(&xml)?;
     let manifest = roster::find(&manifests, platform)?;
     let (version, location) = kind.select(manifest)?;
-    let relative = validate_relative_location(location)?;
-    let filename = relative
-        .file_name()
-        .ok_or_else(|| DownloadError::UnsafePath(location.to_owned()))?;
-    let destination = output
-        .join(platform.key())
-        .join(kind.directory())
-        .join(version)
-        .join(filename);
+    let destination = destination_path(output, platform, kind, version, location)?;
     let squad_url = join_url(content_url, location);
     fetch_to_file(&http, &squad_url, &destination)?;
     Ok(destination)
@@ -84,6 +76,30 @@ pub fn validate_content_url(url: &str) -> Result<(), DownloadError> {
     } else {
         Err(DownloadError::InsecureUrl)
     }
+}
+
+/// Build the local destination for one manifest entry.
+///
+/// Both the version and the location come from the untrusted manifest, so
+/// both need the same traversal validation. The version becomes a directory
+/// name and the location becomes the file name.
+fn destination_path(
+    output: &Path,
+    platform: Platform,
+    kind: SquadKind,
+    version: &str,
+    location: &str,
+) -> Result<PathBuf, DownloadError> {
+    let version = validate_relative_location(version)?;
+    let relative = validate_relative_location(location)?;
+    let filename = relative
+        .file_name()
+        .ok_or_else(|| DownloadError::UnsafePath(location.to_owned()))?;
+    Ok(output
+        .join(platform.key())
+        .join(kind.directory())
+        .join(version)
+        .join(filename))
 }
 
 /// Reject absolute paths and parent traversal in manifest locations.
@@ -113,12 +129,18 @@ fn fetch_text(http: &Client, url: &str) -> Result<String, DownloadError> {
 
 fn send_with_retry(http: &Client, url: &str) -> Result<Response, DownloadError> {
     let mut attempt = 1;
+    let mut delay = RETRY_DELAY;
     loop {
         match http.get(url).send() {
             Ok(response) if response.status().is_success() => {
                 return Ok(response);
             }
-            // Retry transient server failures and connection problems only.
+            Ok(response)
+                if response.status() == reqwest::StatusCode::TOO_MANY_REQUESTS
+                    && attempt < MAX_ATTEMPTS =>
+            {
+                delay = parse_retry_after(&response).unwrap_or(RETRY_DELAY);
+            }
             Ok(response) if response.status().is_server_error() && attempt < MAX_ATTEMPTS => {}
             Ok(response) => {
                 return Err(DownloadError::Status {
@@ -136,8 +158,19 @@ fn send_with_retry(http: &Client, url: &str) -> Result<Response, DownloadError> 
             }
         }
         attempt += 1;
-        std::thread::sleep(RETRY_DELAY);
+        std::thread::sleep(delay);
     }
+}
+
+/// Parse `Retry-After` header (seconds) from a 429 response.
+fn parse_retry_after(response: &Response) -> Option<Duration> {
+    let value = response
+        .headers()
+        .get(reqwest::header::RETRY_AFTER)?
+        .to_str()
+        .ok()?;
+    let seconds = value.parse::<u64>().ok()?;
+    Some(Duration::from_secs(seconds.clamp(1, 30)))
 }
 
 fn fetch_to_file(http: &Client, url: &str, destination: &Path) -> Result<(), DownloadError> {
@@ -232,11 +265,61 @@ mod tests {
     }
 
     #[test]
+    fn destination_rejects_version_traversal() {
+        assert!(matches!(
+            destination_path(
+                Path::new("out"),
+                Platform::Ps4,
+                SquadKind::Major,
+                "../../etc",
+                "fc/squads/Squads20260218000000"
+            ),
+            Err(DownloadError::UnsafePath(_))
+        ));
+    }
+
+    #[test]
+    fn destination_stays_under_the_output_directory() {
+        let destination = destination_path(
+            Path::new("out"),
+            Platform::Ps4,
+            SquadKind::Major,
+            "464",
+            "fc/squads/Squads20260218000000",
+        )
+        .expect("valid manifest entry");
+        assert_eq!(
+            destination,
+            Path::new("out/ps4/squads/464/Squads20260218000000")
+        );
+    }
+
+    #[test]
+    fn accepts_simple_relative_location() {
+        assert!(validate_relative_location("squads/464/Squads").is_ok());
+        assert!(validate_relative_location("Squads").is_ok());
+    }
+
+    #[test]
     fn rejects_insecure_content_urls() {
         assert!(matches!(
             validate_content_url("http://example.com/2026/"),
             Err(DownloadError::InsecureUrl)
         ));
         assert!(validate_content_url(DEFAULT_CONTENT_URL).is_ok());
+    }
+
+    #[test]
+    fn validate_content_url_accepts_https() {
+        assert!(validate_content_url("https://example.com/2026/").is_ok());
+        assert!(validate_content_url("https://example.com").is_ok());
+    }
+
+    #[test]
+    fn validate_content_url_rejects_empty() {
+        assert!(matches!(
+            validate_content_url(""),
+            Err(DownloadError::InsecureUrl)
+        ));
     }
 }

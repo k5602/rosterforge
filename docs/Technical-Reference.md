@@ -72,16 +72,18 @@ offset  size  content
 10      ...   command stream
 ```
 
-The decoder expands to exactly the declared size, prepends nothing, and the
-result must start with the T3DB marker. Output size is capped at 64 MiB.
+The decoder expands to exactly the declared size. It writes the 4-byte
+T3DB marker at output offset 0, then decodes the command stream into the
+remaining bytes. The declared size includes the marker. Output size is
+capped at 64 MiB.
 
 Command encoding, decoded by `src/refpack.rs`:
 
 | Control top bits | Form | Layout |
-|---|---|---|
+| --- | --- | --- |
 | `0xxxxxxx` | small pointer | `control`, `b1`; literals = `control & 3`, length = `((control >> 2) & 7) + 3`, offset = `b1 + ((control & 0x60) << 3) + 1` |
-| `10xxxxxx` | medium pointer | `control`, `b2`, `b3`; literals = `b2 >> 6`, length = `(control & 0x3f) + 4`, offset = `((b2 & 0x3f) << 8 | b3) + 1` |
-| `110xxxxx` | large pointer | `control`, `b2`, `b3`, `b4`; literals = `control & 3`, length = `b4 + ((control & 0x0c) << 6) + 5`, offset = `((control & 0x10) << 12 | b2 << 8 | b3) + 1` |
+| `10xxxxxx` | medium pointer | `control`, `b2`, `b3`; literals = `b2 >> 6`, length = `(control & 0x3f) + 4`, offset = `((b2 & 0x3f) << 8 \| b3) + 1` |
+| `110xxxxx` | large pointer | `control`, `b2`, `b3`, `b4`; literals = `control & 3`, length = `b4 + ((control & 0x0c) << 6) + 5`, offset = `((control & 0x10) << 12 \| b2 << 8 \| b3) + 1` |
 | `111xxxxx` | literal run | literals = `(control & 0x1f) * 4 + 4`; values above 112 are stop codes |
 
 Stop codes are `0xFC..=0xFF`. After the loop ends, the low two bits of the
@@ -134,14 +136,32 @@ one `squadInfo` element per platform:
 ## Testing strategy
 
 - Unit tests cover the RefPack decoder command paths, error contracts,
-  manifest parsing, and the patch invariants. See the `#[cfg(test)]`
-  modules in `src/`.
+  manifest parsing, save name extraction, folder name sanitization, and the
+  patch invariants. See the `#[cfg(test)]` modules in `src/`.
 - Fuzz targets assert the decoders never panic on untrusted input:
 
 ```bash
 cargo install cargo-fuzz
 RUSTUP_TOOLCHAIN=nightly-2025-11-15 cargo fuzz run refpack_decompress
 RUSTUP_TOOLCHAIN=nightly-2025-11-15 cargo fuzz run save_format_validate
+RUSTUP_TOOLCHAIN=nightly-2025-11-15 cargo fuzz run patch_data
+RUSTUP_TOOLCHAIN=nightly-2025-11-15 cargo fuzz run roster_parse
 ```
 
 The pinned nightly works around a cargo-fuzz and newest-nightly mismatch.
+
+## Security hardening
+
+- Downloads use HTTPS only; non-HTTPS content URLs are rejected.
+- Manifest locations are validated against path traversal and absolute paths.
+- Download size is capped at 256 MiB; RefPack output is capped at 64 MiB.
+- Generated squad files are capped at 256 MiB to prevent OOM.
+- Squad source files are size-checked before reading to avoid OOM on
+  untrusted inputs.
+- Output directory replacement refuses to remove symlinks, preventing
+  symlink-swap attacks.
+- All file writes use atomic `.part` + rename to prevent torn writes.
+- HTTP 429 (rate limit) responses are retried with `Retry-After` header
+  parsing, clamped to 1-30 seconds.
+- Backups include SHA-256 integrity markers; restore verifies these before
+  overwriting any file.
