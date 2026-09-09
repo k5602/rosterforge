@@ -74,19 +74,22 @@ pub fn parse_manifests(xml: &str) -> Result<Vec<SquadManifest>, RosterError> {
                     .map_err(|error| RosterError::Xml(error.to_string()))?
                     .trim()
                     .to_owned();
-                match (entry.platform, element.as_str()) {
-                    (_, "dbMajor") => entry.major_version = Some(value),
-                    (_, "dbMajorLoc") => entry.major_location = Some(value),
-                    (_, "dbFUTVer") => entry.fut_version = Some(value),
-                    (_, "dbFUTLoc") => entry.fut_location = Some(value),
-                    _ => {}
+                let name = element.as_str();
+                if name.eq_ignore_ascii_case("dbMajor") {
+                    entry.major_version = Some(value);
+                } else if name.eq_ignore_ascii_case("dbMajorLoc") {
+                    entry.major_location = Some(value);
+                } else if name.eq_ignore_ascii_case("dbFUTVer") {
+                    entry.fut_version = Some(value);
+                } else if name.eq_ignore_ascii_case("dbFUTLoc") {
+                    entry.fut_location = Some(value);
                 }
             }
             Ok(Event::End(event)) => {
-                if event.name().as_ref().eq_ignore_ascii_case(b"squadInfo") {
-                    if let Some(entry) = current.take() {
-                        manifests.push(entry.finish()?);
-                    }
+                if event.name().as_ref().eq_ignore_ascii_case(b"squadInfo")
+                    && let Some(entry) = current.take()
+                {
+                    manifests.push(entry.finish()?);
                 }
                 element.clear();
             }
@@ -173,6 +176,18 @@ mod tests {
         let xbox = find(&manifests, Platform::Xbox).expect("xbox entry");
         assert_eq!(xbox.major_location, "fc/fclive/squads/464/xbox_squads");
         assert!(xbox.fut_location.is_none());
+    }
+
+    #[test]
+    fn element_names_are_case_insensitive() {
+        let xml = r#"<r><SquadInfo Platform="ps4">
+            <DBMAJOR>464</DBMAJOR>
+            <dbmajorloc>fc/fclive/squads/464/x</dbmajorloc>
+        </SquadInfo></r>"#;
+        let manifests = parse_manifests(xml).expect("valid manifest");
+        let ps4 = find(&manifests, Platform::Ps4).expect("ps4 entry");
+        assert_eq!(ps4.major_version, "464");
+        assert_eq!(ps4.major_location, "fc/fclive/squads/464/x");
     }
 
     #[test]

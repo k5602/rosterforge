@@ -63,15 +63,7 @@ pub fn download_latest(
     let manifests = roster::parse_manifests(&xml)?;
     let manifest = roster::find(&manifests, platform)?;
     let (version, location) = kind.select(manifest)?;
-    let relative = validate_relative_location(location)?;
-    let filename = relative
-        .file_name()
-        .ok_or_else(|| DownloadError::UnsafePath(location.to_owned()))?;
-    let destination = output
-        .join(platform.key())
-        .join(kind.directory())
-        .join(version)
-        .join(filename);
+    let destination = destination_path(output, platform, kind, version, location)?;
     let squad_url = join_url(content_url, location);
     fetch_to_file(&http, &squad_url, &destination)?;
     Ok(destination)
@@ -84,6 +76,30 @@ pub fn validate_content_url(url: &str) -> Result<(), DownloadError> {
     } else {
         Err(DownloadError::InsecureUrl)
     }
+}
+
+/// Build the local destination for one manifest entry.
+///
+/// Both the version and the location come from the untrusted manifest, so
+/// both need the same traversal validation. The version becomes a directory
+/// name and the location becomes the file name.
+fn destination_path(
+    output: &Path,
+    platform: Platform,
+    kind: SquadKind,
+    version: &str,
+    location: &str,
+) -> Result<PathBuf, DownloadError> {
+    let version = validate_relative_location(version)?;
+    let relative = validate_relative_location(location)?;
+    let filename = relative
+        .file_name()
+        .ok_or_else(|| DownloadError::UnsafePath(location.to_owned()))?;
+    Ok(output
+        .join(platform.key())
+        .join(kind.directory())
+        .join(version)
+        .join(filename))
 }
 
 /// Reject absolute paths and parent traversal in manifest locations.
@@ -125,8 +141,7 @@ fn send_with_retry(http: &Client, url: &str) -> Result<Response, DownloadError> 
             {
                 delay = parse_retry_after(&response).unwrap_or(RETRY_DELAY);
             }
-            Ok(response)
-                if response.status().is_server_error() && attempt < MAX_ATTEMPTS => {}
+            Ok(response) if response.status().is_server_error() && attempt < MAX_ATTEMPTS => {}
             Ok(response) => {
                 return Err(DownloadError::Status {
                     url: url.to_owned(),
@@ -149,7 +164,11 @@ fn send_with_retry(http: &Client, url: &str) -> Result<Response, DownloadError> 
 
 /// Parse `Retry-After` header (seconds) from a 429 response.
 fn parse_retry_after(response: &Response) -> Option<Duration> {
-    let value = response.headers().get(reqwest::header::RETRY_AFTER)?.to_str().ok()?;
+    let value = response
+        .headers()
+        .get(reqwest::header::RETRY_AFTER)?
+        .to_str()
+        .ok()?;
     let seconds = value.parse::<u64>().ok()?;
     Some(Duration::from_secs(seconds.clamp(1, 30)))
 }
@@ -243,6 +262,36 @@ mod tests {
             Err(DownloadError::UnsafePath(_))
         ));
         assert!(validate_relative_location("fc/squads/file").is_ok());
+    }
+
+    #[test]
+    fn destination_rejects_version_traversal() {
+        assert!(matches!(
+            destination_path(
+                Path::new("out"),
+                Platform::Ps4,
+                SquadKind::Major,
+                "../../etc",
+                "fc/squads/Squads20260218000000"
+            ),
+            Err(DownloadError::UnsafePath(_))
+        ));
+    }
+
+    #[test]
+    fn destination_stays_under_the_output_directory() {
+        let destination = destination_path(
+            Path::new("out"),
+            Platform::Ps4,
+            SquadKind::Major,
+            "464",
+            "fc/squads/Squads20260218000000",
+        )
+        .expect("valid manifest entry");
+        assert_eq!(
+            destination,
+            Path::new("out/ps4/squads/464/Squads20260218000000")
+        );
     }
 
     #[test]

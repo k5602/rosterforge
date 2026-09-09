@@ -49,7 +49,7 @@ pub fn database_from_generated_squads(data: &[u8]) -> Result<&[u8], SaveFormatEr
     if data.len() > MAX_GENERATED_SQUADS_SIZE {
         return Err(SaveFormatError::InvalidGeneratedSquads);
     }
-    if data[GENERATED_HEADER_SIZE..GENERATED_HEADER_SIZE + 2] != *b"DB" {
+    if data[GENERATED_HEADER_SIZE..GENERATED_HEADER_SIZE + T3DB.len()] != T3DB {
         return Err(SaveFormatError::InvalidGeneratedSquads);
     }
     validate_bnry(data)?;
@@ -149,7 +149,10 @@ mod tests {
     fn save_name_rejects_truncated() {
         let mut data = vec![0u8; 16 + 3];
         data[0..4].copy_from_slice(&10u32.to_le_bytes());
-        assert!(matches!(save_name(&data), Err(SaveFormatError::TooShort(_))));
+        assert!(matches!(
+            save_name(&data),
+            Err(SaveFormatError::TooShort(_))
+        ));
     }
 
     #[test]
@@ -195,14 +198,20 @@ mod tests {
     #[test]
     fn validate_data_rejects_short_data() {
         let data = vec![0u8; 500];
-        assert!(matches!(validate_data(&data), Err(SaveFormatError::TooShort(_))));
+        assert!(matches!(
+            validate_data(&data),
+            Err(SaveFormatError::TooShort(_))
+        ));
     }
 
     #[test]
     fn validate_data_rejects_missing_t3db() {
         let mut data = vec![0u8; 2000];
         data[..TYPE_SQUADS.len()].copy_from_slice(TYPE_SQUADS);
-        assert!(matches!(validate_data(&data), Err(SaveFormatError::MissingT3db)));
+        assert!(matches!(
+            validate_data(&data),
+            Err(SaveFormatError::MissingT3db)
+        ));
     }
 
     #[test]
@@ -221,7 +230,10 @@ mod tests {
         let mut data = vec![0u8; 2000 + BNRY_BLOCK_SIZE];
         data[100..100 + TYPE_SQUADS.len()].copy_from_slice(TYPE_SQUADS);
         data[1000..1004].copy_from_slice(&T3DB);
-        assert!(matches!(validate_data(&data), Err(SaveFormatError::InvalidBnry)));
+        assert!(matches!(
+            validate_data(&data),
+            Err(SaveFormatError::InvalidBnry)
+        ));
     }
 
     #[test]
@@ -231,5 +243,19 @@ mod tests {
         assert_eq!(find_t3db(&data), None);
         data[1004..1008].copy_from_slice(&T3DB);
         assert_eq!(find_t3db(&data), Some(1004));
+    }
+
+    #[test]
+    fn generated_squads_requires_the_full_t3db_marker() {
+        let mut data = vec![0u8; GENERATED_HEADER_SIZE + T3DB.len() + BNRY_BLOCK_SIZE];
+        data[GENERATED_HEADER_SIZE..GENERATED_HEADER_SIZE + T3DB.len()].copy_from_slice(&T3DB);
+        let bnry = data.len() - BNRY_BLOCK_SIZE;
+        data[bnry..bnry + BNRY_MAGIC.len()].copy_from_slice(BNRY_MAGIC);
+        assert!(database_from_generated_squads(&data).is_ok());
+        data[GENERATED_HEADER_SIZE + T3DB.len() - 1] = 0x09;
+        assert!(matches!(
+            database_from_generated_squads(&data),
+            Err(SaveFormatError::InvalidGeneratedSquads)
+        ));
     }
 }

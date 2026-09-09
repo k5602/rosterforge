@@ -44,7 +44,10 @@ pub fn detect(path: &Path) -> Result<SquadSource, SourceError> {
         1 => Ok(candidates.remove(0)),
         _ => Err(SourceError::Ambiguous {
             path: path.to_owned(),
-            candidates: candidates.iter().map(|s| source_path(s).to_owned()).collect(),
+            candidates: candidates
+                .iter()
+                .map(|s| source_path(s).to_owned())
+                .collect(),
         }),
     }
 }
@@ -64,18 +67,14 @@ pub fn database(source: &SquadSource) -> Result<Vec<u8>, SourceError> {
 }
 
 fn classify(path: &Path) -> Result<SquadSource, SourceError> {
-    let metadata =
-        fs::metadata(path).map_err(|source| SourceError::Read {
-            path: path.to_owned(),
-            source,
-        })?;
+    let metadata = fs::metadata(path).map_err(|source| SourceError::Read {
+        path: path.to_owned(),
+        source,
+    })?;
     if !metadata.is_file() {
         return Err(SourceError::Read {
             path: path.to_owned(),
-            source: std::io::Error::new(
-                std::io::ErrorKind::InvalidInput,
-                "not a regular file",
-            ),
+            source: std::io::Error::new(std::io::ErrorKind::InvalidInput, "not a regular file"),
         });
     }
     let size = metadata.len();
