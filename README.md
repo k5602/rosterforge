@@ -3,6 +3,7 @@
 `rf` is a **hobby project**: a cross-platform command-line tool for updating
 EA FC PS4 squad saves. It downloads the latest EA roster, decodes it, and
 patches an Apollo-exported PS4 save, with validation and backups along the way.
+EA FC 27 is the default; pass `--game fc26` for EA FC 26.
 
 No warranty. The save formats are undocumented and can break at any time.
 Always keep your own backup; the tool creates one too, but trust nothing
@@ -25,7 +26,7 @@ rf restore <backup> <DATA>    # roll a save back from a backup
 ```
 
 Run `rf --help` for all options: `--dry-run`, `--platform`, `--fut`,
-`--content-url`, shell completions, and more.
+`--game`, `--content-url`, shell completions, and more.
 
 Binary format details: [docs/Technical-Reference.md](docs/Technical-Reference.md).
 

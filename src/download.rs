@@ -9,7 +9,9 @@ use reqwest::blocking::{Client, Response};
 use crate::error::{DownloadError, RosterError};
 use crate::roster::{self, Platform, SquadManifest};
 
-pub const DEFAULT_CONTENT_URL: &str = "https://eafc26.content.easports.com/fc/fltOnlineAssets/26E4D4D6-8DBB-4A9A-BD99-9C47D3AA341D/2026/";
+pub const FC26_CONTENT_URL: &str = "https://eafc26.content.easports.com/fc/fltOnlineAssets/26E4D4D6-8DBB-4A9A-BD99-9C47D3AA341D/2026/";
+pub const FC27_CONTENT_URL: &str = "https://eafc27.content.easports.com/fc/fltOnlineAssets/27A3C9F1-6B2E-4D7A-8C1F-2E9B5A4D6C7E/2027/";
+pub const DEFAULT_CONTENT_URL: &str = FC27_CONTENT_URL;
 const ROSTER_PATH: &str = "fc/fclive/genxtitle/rosterupdate.xml";
 pub const MAX_DOWNLOAD_BYTES: u64 = 256 * 1024 * 1024;
 const MAX_ATTEMPTS: u32 = 3;
@@ -321,5 +323,12 @@ mod tests {
             validate_content_url(""),
             Err(DownloadError::InsecureUrl)
         ));
+    }
+
+    #[test]
+    fn default_content_url_is_fc27() {
+        assert_eq!(DEFAULT_CONTENT_URL, FC27_CONTENT_URL);
+        assert!(DEFAULT_CONTENT_URL.contains("eafc27."));
+        assert!(FC26_CONTENT_URL.contains("eafc26."));
     }
 }

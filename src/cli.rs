@@ -26,9 +26,12 @@ pub enum Command {
         /// Fetch the FUT squads file instead of the major squads file.
         #[arg(long)]
         fut: bool,
-        /// EA content base URL. Override when a new title year rotates it.
-        #[arg(long, default_value_t = crate::download::DEFAULT_CONTENT_URL.to_owned())]
-        content_url: String,
+        /// Game database year. Selects the default EA content URL.
+        #[arg(long, value_enum, default_value = "fc27")]
+        game: GameVersion,
+        /// EA content base URL. Overrides --game.
+        #[arg(long)]
+        content_url: Option<String>,
         #[arg(long, default_value = "downloaded")]
         output_dir: PathBuf,
     },
@@ -47,6 +50,25 @@ pub enum Command {
 pub enum TargetPlatform {
     Ps4,
     Xbox,
+}
+
+/// EA FC title years with known content URLs.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, clap::ValueEnum)]
+pub enum GameVersion {
+    #[value(name = "fc26")]
+    Fc26,
+    #[default]
+    #[value(name = "fc27")]
+    Fc27,
+}
+
+impl GameVersion {
+    pub fn content_url(self) -> &'static str {
+        match self {
+            GameVersion::Fc26 => rf::download::FC26_CONTENT_URL,
+            GameVersion::Fc27 => rf::download::FC27_CONTENT_URL,
+        }
+    }
 }
 
 impl From<TargetPlatform> for rf::roster::Platform {
@@ -74,9 +96,12 @@ pub struct UpdateArgs {
     pub data: Option<PathBuf>,
     #[arg(long)]
     pub squad_file: Option<PathBuf>,
-    /// EA content base URL. Override when a new title year rotates it.
-    #[arg(long, default_value_t = crate::download::DEFAULT_CONTENT_URL.to_owned())]
-    pub content_url: String,
+    /// Game database year. Selects the default EA content URL.
+    #[arg(long, value_enum, default_value = "fc27")]
+    pub game: GameVersion,
+    /// EA content base URL. Overrides --game.
+    #[arg(long)]
+    pub content_url: Option<String>,
     #[arg(long, default_value = "downloaded")]
     pub download_dir: PathBuf,
     #[arg(long, default_value = "output")]

@@ -9,7 +9,7 @@ use clap::{CommandFactory, Parser};
 use clap_complete::generate;
 use sha2::{Digest, Sha256};
 
-use cli::{Cli, Command, RestoreArgs, UpdateArgs};
+use cli::{Cli, Command, GameVersion, RestoreArgs, UpdateArgs};
 use rf::backup;
 use rf::download::{self, SquadKind};
 use rf::error::SourceError;
@@ -23,6 +23,7 @@ fn main() -> Result<()> {
         Command::Download {
             platform,
             fut,
+            game,
             content_url,
             output_dir,
         } => {
@@ -31,6 +32,7 @@ fn main() -> Result<()> {
             } else {
                 SquadKind::Major
             };
+            let content_url = resolve_content_url(game, content_url.as_deref());
             let path = download::download_latest(&output_dir, &content_url, platform.into(), kind)?;
             println!("Downloaded: {}", path.display());
             Ok(())
@@ -181,6 +183,7 @@ fn update(args: UpdateArgs) -> Result<()> {
     } else {
         None
     };
+    let content_url = resolve_content_url(args.game, args.content_url.as_deref());
     let source = match args.squad_file.as_deref() {
         Some(path) => source_detect::detect(path)?,
         None => match source_detect::detect(&args.download_dir) {
@@ -190,7 +193,7 @@ fn update(args: UpdateArgs) -> Result<()> {
             Err(SourceError::NotFound(_) | SourceError::Missing(_)) => {
                 let path = download::download_latest(
                     &args.download_dir,
-                    &args.content_url,
+                    &content_url,
                     rf::roster::Platform::Ps4,
                     SquadKind::Major,
                 )?;
@@ -262,6 +265,10 @@ fn update(args: UpdateArgs) -> Result<()> {
     }
     println!("Patched DATA written to {}", destination.display());
     Ok(())
+}
+
+fn resolve_content_url(game: GameVersion, override_url: Option<&str>) -> String {
+    override_url.map_or_else(|| game.content_url().to_owned(), |url| url.to_owned())
 }
 
 fn hash(bytes: &[u8]) -> String {

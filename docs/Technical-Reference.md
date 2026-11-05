@@ -97,12 +97,16 @@ byte at a time.
 one `squadInfo` element per platform:
 
 ```xml
-<squadInfo platform="ps4">
-    <dbMajor>464</dbMajor>
-    <dbMajorLoc>fc/fclive/squads/464/Squads20260218000000</dbMajorLoc>
-    <dbFUTVer>464.fut</dbFUTVer>
-    <dbFUTLoc>fc/fclive/futsquads/464/FutSquads</dbFUTLoc>
-</squadInfo>
+<squad>
+  <squadInfoSet>
+    <squadInfo platform="ps4">
+      <dbMajor>590</dbMajor>
+      <dbMajorLoc>fc/fclive/genxtitle/roster/ps4/squads_20261103_590_1_1678241278.bin</dbMajorLoc>
+      <dbFUTVer>33</dbFUTVer>
+      <dbFUTLoc>fc/fclive/genxtitle/roster/ps4/futsquads_20261022_33_1_384786316.bin</dbFUTLoc>
+    </squadInfo>
+  </squadInfoSet>
+</squad>
 ```
 
 - `platform` values handled by `rf`: `ps4`, `xbox` (case insensitive).
@@ -110,8 +114,8 @@ one `squadInfo` element per platform:
 - `dbFUTVer` / `dbFUTLoc` are optional FUT squad entries.
 - Manifest locations are joined onto the content base URL. `rf` rejects
   absolute paths and parent traversal before any download.
-- The content base URL rotates per game year. Pass `--content-url` instead
-  of editing source when EA moves it.
+- The content base URL rotates per game year. `--game fc27` is the default;
+  `--game fc26` selects the older URL. `--content-url` overrides both.
 
 ## Update algorithm
 
